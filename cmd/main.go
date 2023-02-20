@@ -2,32 +2,21 @@ package main
 
 import (
 	internal "github.com/rogaliiik/playlist/internal/playlist"
-	"time"
 )
 
 func main() {
 	p := internal.NewPlaylist()
+	p.Wg.Add(1)
+	defer p.Wg.Wait()
 
-	p.AddSong(&internal.Song{
-		Title:    "Song 1",
-		Duration: 2,
-	})
-	p.AddSong(&internal.Song{
-		Title:    "Song 2",
-		Duration: 2,
-	})
-	p.AddSong(&internal.Song{
-		Title:    "Song 3",
-		Duration: 2,
-	})
+	p.AddSong(internal.NewSong("Song 1", 1))
+	p.AddSong(internal.NewSong("Song 2", 1))
+	p.AddSong(internal.NewSong("Song 3", 1))
 
-	go p.Play()
-	time.Sleep(1)
-	p.Pause()
-	<-p.PlayChan
-
+	go p.Broadcast()
 	p.Next()
+	p.Prev()
+	p.AddSong(internal.NewSong("Song 4", 1))
 	p.Next()
-	<-p.PlayChan
 
 }
