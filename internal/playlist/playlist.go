@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-//TODO: add logs
-
 type State int8
 
 const (
@@ -36,7 +34,7 @@ type Playlist struct {
 	tail     *Node
 	head     *Node
 	timecode int64
-	mu       sync.Mutex
+	mutex    sync.Mutex
 	Wg       sync.WaitGroup
 }
 
@@ -54,9 +52,9 @@ func (p *Playlist) Pause() {
 
 }
 
-func (p *Playlist) Next() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *Playlist) Next() error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	p.timecode = 0
 	if p.current != nil {
 		if p.current.next == nil {
@@ -66,12 +64,14 @@ func (p *Playlist) Next() {
 		}
 		fmt.Println("Next:", p.current.song.title)
 		p.Play()
+		return nil
 	}
+	return fmt.Errorf("there are no songs in playlist")
 }
 
-func (p *Playlist) Prev() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *Playlist) Prev() error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	p.timecode = 0
 	if p.current != nil {
 		if p.current.prev == nil {
@@ -81,12 +81,14 @@ func (p *Playlist) Prev() {
 		}
 		fmt.Println("Previous:", p.current.song.title)
 		p.Play()
+		return nil
 	}
+	return fmt.Errorf("there are no songs in playlist")
 }
 
 func (p *Playlist) AddSong(s *Song) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	fmt.Println("New song:", s.title)
 	node := &Node{song: s}
 	if p.tail == nil {
@@ -107,11 +109,14 @@ func (p *Playlist) Shutdown() {
 
 func (p *Playlist) Broadcast() {
 	for {
+		tick := time.Tick(1 * time.Second)
 		for p.current != nil && p.timecode <= p.current.song.duration {
-			if p.state == Play {
-				fmt.Println(p.current.song.title, p.timecode)
-				time.Sleep(time.Second)
-				p.timecode += 1
+			select {
+			case <-tick:
+				if p.state == Play {
+					fmt.Println(p.current.song.title, p.timecode)
+					p.timecode += 1
+				}
 			}
 		}
 		if p.state == Play {

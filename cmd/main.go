@@ -15,8 +15,11 @@ func main() {
 
 	go p.Broadcast()
 	p.Next()
-	p.Prev()
+
 	p.AddSong(internal.NewSong("Song 4", 1))
-	p.Next()
+	p.Prev()
+	p.AddSong(internal.NewSong("Song 5", 1))
+
+	p.Pause()
 
 }
