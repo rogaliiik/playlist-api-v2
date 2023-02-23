@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-//TODO: add logs
-
 type State int8
 
 const (
@@ -15,15 +13,11 @@ const (
 	Play  = 1
 )
 
-type Node struct {
-	song *Song
-	prev *Node
-	next *Node
-}
-
 type Song struct {
 	title    string
 	duration int64
+	prev     *Song
+	next     *Song
 }
 
 func NewSong(title string, duration int64) *Song {
@@ -32,16 +26,32 @@ func NewSong(title string, duration int64) *Song {
 
 type Playlist struct {
 	state    State
-	current  *Node
-	tail     *Node
-	head     *Node
+	current  *Song
+	tail     *Song
+	head     *Song
 	timecode int64
-	mu       sync.Mutex
+	mutex    sync.Mutex
 	Wg       sync.WaitGroup
 }
 
 func NewPlaylist() *Playlist {
 	return &Playlist{state: Pause, tail: nil, head: nil, current: nil}
+}
+
+func (p *Playlist) AddSong(s *Song) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	fmt.Println("New song:", s.title)
+	node := s
+	if p.tail == nil {
+		p.tail = node
+		p.current = node
+		p.head = node
+	} else {
+		p.tail.next = node
+		node.prev = p.tail
+		p.tail = node
+	}
 }
 
 func (p *Playlist) Play() {
@@ -54,9 +64,9 @@ func (p *Playlist) Pause() {
 
 }
 
-func (p *Playlist) Next() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *Playlist) Next() error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	p.timecode = 0
 	if p.current != nil {
 		if p.current.next == nil {
@@ -64,14 +74,16 @@ func (p *Playlist) Next() {
 		} else {
 			p.current = p.current.next
 		}
-		fmt.Println("Next:", p.current.song.title)
+		fmt.Println("Next:", p.current.title)
 		p.Play()
+		return nil
 	}
+	return fmt.Errorf("there are no songs in playlist")
 }
 
-func (p *Playlist) Prev() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *Playlist) Prev() error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	p.timecode = 0
 	if p.current != nil {
 		if p.current.prev == nil {
@@ -79,25 +91,11 @@ func (p *Playlist) Prev() {
 		} else {
 			p.current = p.current.prev
 		}
-		fmt.Println("Previous:", p.current.song.title)
+		fmt.Println("Previous:", p.current.title)
 		p.Play()
+		return nil
 	}
-}
-
-func (p *Playlist) AddSong(s *Song) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	fmt.Println("New song:", s.title)
-	node := &Node{song: s}
-	if p.tail == nil {
-		p.tail = node
-		p.current = node
-		p.head = node
-	} else {
-		p.tail.next = node
-		node.prev = p.tail
-		p.tail = node
-	}
+	return fmt.Errorf("there are no songs in playlist")
 }
 
 func (p *Playlist) Shutdown() {
@@ -107,11 +105,14 @@ func (p *Playlist) Shutdown() {
 
 func (p *Playlist) Broadcast() {
 	for {
-		for p.current != nil && p.timecode <= p.current.song.duration {
-			if p.state == Play {
-				fmt.Println(p.current.song.title, p.timecode)
-				time.Sleep(time.Second)
-				p.timecode += 1
+		tick := time.Tick(1 * time.Second)
+		for p.current != nil && p.timecode <= p.current.duration {
+			select {
+			case <-tick:
+				if p.state == Play {
+					fmt.Println(p.current.title, p.timecode)
+					p.timecode += 1
+				}
 			}
 		}
 		if p.state == Play {

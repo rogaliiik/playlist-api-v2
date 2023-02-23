@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	internal "github.com/rogaliiik/playlist/internal/playlist"
 )
 
@@ -14,9 +16,14 @@ func main() {
 	p.AddSong(internal.NewSong("Song 3", 1))
 
 	go p.Broadcast()
-	p.Next()
-	p.Prev()
+	p.Play()
 	p.AddSong(internal.NewSong("Song 4", 1))
-	p.Next()
+	err := p.Prev()
+	if err != nil {
+		log.Println(err)
+	}
+	p.AddSong(internal.NewSong("Song 5", 1))
+	p.Pause()
+	p.Shutdown()
 
 }
