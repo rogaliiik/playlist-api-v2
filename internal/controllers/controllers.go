@@ -3,24 +3,25 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/rogaliiik/playlist/internal/models"
+	internal "github.com/rogaliiik/playlist/internal/playlist"
+	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/gorilla/mux"
 
-	"github.com/rogaliiik/playlist/internal/playlist"
 	"github.com/rogaliiik/playlist/utility"
 )
 
-var p *internal.Playlist
+var (
+	playlistDB *models.Playlist
+	playlist   *internal.Player
+)
 
 func GetAllSongs(w http.ResponseWriter, r *http.Request) {
-	var Songs []map[string]string
-	s := p.Head
-	for s != nil {
-		Songs = append(Songs, s.FieldsToMap())
-		s = s.Next
-	}
+	Songs := models.GetAllSongs()
+
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
@@ -35,18 +36,14 @@ func GetAllSongs(w http.ResponseWriter, r *http.Request) {
 func GetSongById(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	songId := vars["songId"]
-	song := p.Head
-	ID, err := strconv.Atoi(songId)
+	id, err := strconv.Atoi(songId)
 	if err != nil {
-		fmt.Println("error while parsing")
+		log.Println(err)
+		return
 	}
-	for song != nil {
-		if song.ID.ID() == uint32(ID) {
-			break
-		}
-		song = song.Next
-	}
-	res, err := json.Marshal(song.FieldsToMap())
+	song := models.GetSongById(uint(id))
+
+	res, err := json.Marshal(song)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -57,11 +54,11 @@ func GetSongById(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateSong(w http.ResponseWriter, r *http.Request) {
-	newSong := internal.NewSong("", 0)
+	newSong := &models.Song{}
 	utility.ParseBody(r, newSong)
 
-	p.AddSong(newSong)
-	res, err := json.Marshal(newSong.FieldsToMap())
+	song := playlistDB.AddSong(newSong)
+	res, err := json.Marshal(song)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -75,16 +72,18 @@ func CreateSong(w http.ResponseWriter, r *http.Request) {
 func DeleteSong(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	songId := vars["songId"]
-	ID, err := strconv.Atoi(songId)
+	id, err := strconv.Atoi(songId)
 	if err != nil {
-		fmt.Println("error while parsing")
-	}
-	deleted := p.RemoveSong(uint32(ID))
-
-	if deleted == nil {
+		log.Println(err)
 		return
 	}
-	res, err := json.Marshal(deleted.FieldsToMap())
+	deleted, err := models.DeleteSong(uint(id))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	res, err := json.Marshal(deleted)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -96,33 +95,17 @@ func DeleteSong(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateSong(w http.ResponseWriter, r *http.Request) {
-	var updateSong = internal.NewSong("", 0)
+	var updateSong = &models.Song{}
 	utility.ParseBody(r, updateSong)
 
 	vars := mux.Vars(r)
 	songId := vars["songId"]
-	song := p.Head
-	ID, err := strconv.Atoi(songId)
+	id, err := strconv.Atoi(songId)
 	if err != nil {
 		fmt.Println("error while parsing")
 	}
-	for song != nil {
-		if song.ID.ID() == uint32(ID) {
-			break
-		}
-		song = song.Next
-	}
-	if song == nil {
-		return
-	}
-	if updateSong.Title != "" {
-		song.Title = updateSong.Title
-	}
-	if updateSong.Duration != 0 {
-		song.Duration = updateSong.Duration
-	}
-
-	res, err := json.Marshal(song.FieldsToMap())
+	song := models.UpdateSong(id, updateSong)
+	res, err := json.Marshal(song)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -134,8 +117,9 @@ func UpdateSong(w http.ResponseWriter, r *http.Request) {
 }
 
 func PlaySong(w http.ResponseWriter, r *http.Request) {
-	p.Play()
-	res, err := json.Marshal(map[string]string{"state": fmt.Sprintf("%d", p.State)})
+	playlist.Play()
+	playlistDB.Play()
+	res, err := json.Marshal(playlistDB)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -147,8 +131,10 @@ func PlaySong(w http.ResponseWriter, r *http.Request) {
 }
 
 func PauseSong(w http.ResponseWriter, r *http.Request) {
-	p.Pause()
-	res, err := json.Marshal(map[string]string{"state": fmt.Sprintf("%d", p.State)})
+	playlist.Pause()
+	playlistDB.Pause()
+	playlistDB.State = internal.Pause
+	res, err := json.Marshal(playlistDB)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -159,37 +145,43 @@ func PauseSong(w http.ResponseWriter, r *http.Request) {
 }
 
 func NextSong(w http.ResponseWriter, r *http.Request) {
-	p.Next()
-	if p.Current == nil {
-		return
-	}
-	res, err := json.Marshal(p.Current.FieldsToMap())
+	next := playlistDB.NextSong()
+
+	res, err := json.Marshal(next)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(res)
 }
 
 func PrevSong(w http.ResponseWriter, r *http.Request) {
-	p.Prev()
-	if p.Current == nil {
-		return
-	}
-	res, err := json.Marshal(p.Current.FieldsToMap())
+	prev := playlistDB.PrevSong()
+
+	res, err := json.Marshal(prev)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(res)
+}
 
+func Status(w http.ResponseWriter, r *http.Request) {
+	res, err := json.Marshal(playlistDB)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(res)
 }
 
 func init() {
-	p = internal.GetPlaylist()
+	playlistDB = models.GetPlaylist()
+	playlist = internal.GetPlaylist()
 }

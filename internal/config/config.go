@@ -24,7 +24,7 @@ func Connect() {
 		panic("db_password is not in .env")
 	}
 
-	dsn := "host=localhost user=" + dbUser + "password=" + dbPassword + " dbname=" + dbName + "sslmode=disable"
+	dsn := "host=localhost user=" + dbUser + " password=" + dbPassword + " dbname=" + dbName + " sslmode=disable"
 	d, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		panic(err)

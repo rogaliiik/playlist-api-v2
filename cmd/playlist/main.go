@@ -16,13 +16,9 @@ func main() {
 	routes.RegisterRoutes(router)
 	http.Handle("/", router)
 
-	p := internal.NewPlaylist()
+	p := internal.GetPlaylist()
 	p.Wg.Add(1)
 	defer p.Wg.Wait()
-
-	p.AddSong(internal.NewSong("Song 1", 1))
-	p.AddSong(internal.NewSong("Song 2", 1))
-	p.AddSong(internal.NewSong("Song 3", 1))
 
 	go p.Broadcast()
 

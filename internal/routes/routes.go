@@ -17,5 +17,6 @@ var RegisterRoutes = func(router *mux.Router) {
 	router.HandleFunc("/pause", controllers.PauseSong).Methods("GET")
 	router.HandleFunc("/next", controllers.NextSong).Methods("GET")
 	router.HandleFunc("/prev", controllers.PrevSong).Methods("GET")
+	router.HandleFunc("/status", controllers.Status).Methods("GET")
 
 }

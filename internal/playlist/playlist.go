@@ -2,161 +2,81 @@ package internal
 
 import (
 	"fmt"
-	"strconv"
+	"github.com/rogaliiik/playlist/internal/models"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 )
 
-type State int8
-
-var p Playlist
+var (
+	playlistDB *models.Playlist
+	player     *Player
+)
 
 const (
-	Pause State = 0
-	Play  State = 1
+	Pause = 0
+	Play  = 1
 )
 
-type Song struct {
-	ID       uuid.UUID `json:"id"`
-	Title    string    `json:"title"`
-	Duration int       `json:"duration"`
-	Prev     *Song
-	Next     *Song
-}
-
-func NewSong(title string, duration int) *Song {
-	return &Song{Title: title, Duration: duration, ID: uuid.New()}
-}
-
-func (s *Song) FieldsToMap() map[string]string {
-	return map[string]string{
-		"id":       strconv.Itoa(int(s.ID.ID())),
-		"title":    s.Title,
-		"duration": strconv.Itoa(s.Duration)}
-}
-
-type Playlist struct {
-	State    State
-	Current  *Song
-	Tail     *Song
-	Head     *Song
-	timecode int
-	mutex    sync.Mutex
+type Player struct {
+	State    uint
+	Current  uint
+	timecode uint
 	Wg       sync.WaitGroup
 }
 
-func NewPlaylist() *Playlist {
-	p = Playlist{State: Pause, Tail: nil, Head: nil, Current: nil}
-	return &p
+func GetPlaylist() *Player {
+	return player
 }
 
-func GetPlaylist() *Playlist {
-	return &p
-}
-
-func (p *Playlist) AddSong(s *Song) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	fmt.Println("New song:", s.Title)
-	node := s
-	if p.Tail == nil {
-		p.Tail = node
-		p.Current = node
-		p.Head = node
-	} else {
-		p.Tail.Next = node
-		node.Prev = p.Tail
-		p.Tail = node
-	}
-}
-
-func (p *Playlist) RemoveSong(id uint32) *Song {
-	song := p.Head
-	for song != nil {
-		if song.ID.ID() == id {
-			if p.Current.ID.ID() == id {
-				return nil
-			}
-			prev := song.Prev
-			next := song.Next
-			if prev != nil {
-				prev.Next = next
-			}
-			if next != nil {
-				next.Prev = prev
-			}
-			return song
-		}
-		song = song.Next
-	}
-	return nil
-}
-
-func (p *Playlist) Play() {
+func (p *Player) Play() {
 	p.State = Play
-
 }
 
-func (p *Playlist) Pause() {
+func (p *Player) Pause() {
 	p.State = Pause
-
 }
 
-func (p *Playlist) Next() error {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+func (p *Player) Next() {
 	p.timecode = 0
-	if p.Current != nil {
-		if p.Current.Next == nil {
-			p.Current = p.Head
-		} else {
-			p.Current = p.Current.Next
-		}
-		fmt.Println("Next:", p.Current.Title)
-		p.Play()
-		return nil
-	}
-	return fmt.Errorf("there are no songs in playlist")
+	p.Current = playlistDB.Current
 }
 
-func (p *Playlist) Prev() error {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+func (p *Player) Prev() {
 	p.timecode = 0
-	if p.Current != nil {
-		if p.Current.Prev == nil {
-			p.Current = p.Tail
-		} else {
-			p.Current = p.Current.Prev
-		}
-		fmt.Println("Previous:", p.Current.Title)
-		p.Play()
-		return nil
-	}
-	return fmt.Errorf("there are no songs in playlist")
+	p.Current = playlistDB.Current
 }
 
-func (p *Playlist) Shutdown() {
+func (p *Player) Shutdown() {
 	fmt.Println("Exit...")
 	p.Wg.Done()
 }
 
-func (p *Playlist) Broadcast() {
+func (p *Player) Broadcast() {
 	for {
+		song := models.GetSongById(p.Current)
 		tick := time.Tick(1 * time.Second)
-		for p.Current != nil && p.timecode <= p.Current.Duration {
+		//fmt.Println("p.Current", p.Current, p.timecode)
+		for p.Current != 0 && p.timecode <= song.Duration {
 			select {
 			case <-tick:
 				if p.State == Play {
-					fmt.Println(p.Current.ID.ID(), p.Current.Title, p.timecode)
+					fmt.Println(song.ID, song.Title, p.timecode)
 					p.timecode += 1
+					playlistDB.Update(playlistDB.State, playlistDB.Current, playlistDB.Timecode+1)
 				}
 			}
 		}
 		if p.State == Play {
 			p.Next()
 		}
+	}
+}
+
+func init() {
+	playlistDB = models.GetPlaylist()
+	player = &Player{
+		State:    playlistDB.State,
+		Current:  playlistDB.Current,
+		timecode: playlistDB.Timecode,
 	}
 }
