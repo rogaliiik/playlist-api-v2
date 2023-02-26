@@ -1,82 +1,96 @@
 package internal
 
 import (
-	"fmt"
+	"errors"
 	"github.com/rogaliiik/playlist/internal/models"
-	"sync"
-	"time"
+	"gorm.io/gorm"
+	"log"
 )
 
-var (
-	playlistDB *models.Playlist
-	player     *Player
-)
+func GetPlaylistDB() *models.PlaylistDB {
+	var p *models.PlaylistDB
 
-const (
-	Pause = 0
-	Play  = 1
-)
-
-type Player struct {
-	State    uint
-	Current  uint
-	timecode uint
-	Wg       sync.WaitGroup
+	err := models.Store.DB.First(&p).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		models.Store.DB.Create(&models.PlaylistDB{})
+		models.Store.DB.First(&p)
+		return p
+	}
+	return p
 }
 
-func GetPlaylist() *Player {
-	return player
+func AddSong(song *models.Song) *models.Song {
+	p := GetPlaylistDB()
+	var tail *models.Song
+	err := models.Store.DB.Last(&tail).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		newSong := CreateSong(song)
+		p.Current = newSong.ID
+		models.Store.DB.Save(&p)
+		return newSong
+	}
+	newSong := CreateSong(song)
+	tail.Next = newSong.ID
+	newSong.Prev = tail.ID
+	models.Store.DB.Save(&tail)
+	models.Store.DB.Save(&newSong)
+	return newSong
 }
 
-func (p *Player) Play() {
+func NextSong() *models.Song {
+	p := GetPlaylistDB()
+	if p.Current != 0 {
+		cur := GetSongById(p.Current)
+		if cur.Next != 0 {
+			song := GetSongById(cur.Next)
+			p.Current = song.ID
+			p.Timecode = 0
+			models.Store.DB.Save(&p)
+			return song
+		}
+		var head *models.Song
+		models.Store.DB.First(&head)
+		p.Current = head.ID
+		p.Timecode = 0
+		models.Store.DB.Save(&p)
+		return head
+	}
+	return nil
+}
+
+func PrevSong() *models.Song {
+	p := GetPlaylistDB()
+	if p.Current != 0 {
+		cur := GetSongById(p.Current)
+		if cur.Prev != 0 {
+			song := GetSongById(cur.Prev)
+			p.Current = song.ID
+			p.Timecode = 0
+			models.Store.DB.Save(&p)
+			return song
+		}
+		var tail *models.Song
+		models.Store.DB.Last(&tail)
+		p.Current = tail.ID
+		p.Timecode = 0
+		models.Store.DB.Save(&p)
+		return tail
+	}
+	return nil
+}
+
+func PlaySong() *models.PlaylistDB {
+	p := GetPlaylistDB()
 	p.State = Play
+	models.Store.DB.Save(&p)
+	log.Println("playlist is playing")
+	return p
 }
 
-func (p *Player) Pause() {
+func PauseSong() *models.PlaylistDB {
+	p := GetPlaylistDB()
 	p.State = Pause
-}
-
-func (p *Player) Next() {
-	p.timecode = 0
-	p.Current = playlistDB.Current
-}
-
-func (p *Player) Prev() {
-	p.timecode = 0
-	p.Current = playlistDB.Current
-}
-
-func (p *Player) Shutdown() {
-	fmt.Println("Exit...")
-	p.Wg.Done()
-}
-
-func (p *Player) Broadcast() {
-	for {
-		song := models.GetSongById(p.Current)
-		tick := time.Tick(1 * time.Second)
-		//fmt.Println("p.Current", p.Current, p.timecode)
-		for p.Current != 0 && p.timecode <= song.Duration {
-			select {
-			case <-tick:
-				if p.State == Play {
-					fmt.Println(song.ID, song.Title, p.timecode)
-					p.timecode += 1
-					playlistDB.Update(playlistDB.State, playlistDB.Current, playlistDB.Timecode+1)
-				}
-			}
-		}
-		if p.State == Play {
-			p.Next()
-		}
-	}
-}
-
-func init() {
-	playlistDB = models.GetPlaylist()
-	player = &Player{
-		State:    playlistDB.State,
-		Current:  playlistDB.Current,
-		timecode: playlistDB.Timecode,
-	}
+	models.Store.DB.Save(&p)
+	log.Println("playlist is paused")
+	return p
 }

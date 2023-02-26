@@ -6,9 +6,15 @@ import (
 	"gorm.io/gorm"
 	"log"
 	"os"
+	"sync"
 )
 
-var db *gorm.DB
+var store Store
+
+type Store struct {
+	DB    *gorm.DB
+	Mutex sync.Mutex
+}
 
 func Connect() {
 	dbPassword, ok := os.LookupEnv("DB_PASSWORD")
@@ -29,11 +35,11 @@ func Connect() {
 	if err != nil {
 		panic(err)
 	}
-	db = d
+	store.DB = d
 }
 
-func GetDB() *gorm.DB {
-	return db
+func GetDB() Store {
+	return store
 }
 
 func init() {

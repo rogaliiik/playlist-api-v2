@@ -15,12 +15,11 @@ import (
 )
 
 var (
-	playlistDB *models.Playlist
-	playlist   *internal.Player
+	playlistDB *models.PlaylistDB
 )
 
 func GetAllSongs(w http.ResponseWriter, r *http.Request) {
-	Songs := models.GetAllSongs()
+	Songs := internal.GetAllSongs()
 
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -41,7 +40,7 @@ func GetSongById(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	song := models.GetSongById(uint(id))
+	song := internal.GetSongById(uint(id))
 
 	res, err := json.Marshal(song)
 	if err != nil {
@@ -57,7 +56,7 @@ func CreateSong(w http.ResponseWriter, r *http.Request) {
 	newSong := &models.Song{}
 	utility.ParseBody(r, newSong)
 
-	song := playlistDB.AddSong(newSong)
+	song := internal.AddSong(newSong)
 	res, err := json.Marshal(song)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -77,7 +76,7 @@ func DeleteSong(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	deleted, err := models.DeleteSong(uint(id))
+	deleted, err := internal.DeleteSong(uint(id))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -104,7 +103,7 @@ func UpdateSong(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println("error while parsing")
 	}
-	song := models.UpdateSong(id, updateSong)
+	song := internal.UpdateSong(id, updateSong)
 	res, err := json.Marshal(song)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -117,8 +116,7 @@ func UpdateSong(w http.ResponseWriter, r *http.Request) {
 }
 
 func PlaySong(w http.ResponseWriter, r *http.Request) {
-	playlist.Play()
-	playlistDB.Play()
+	playlistDB = internal.PlaySong()
 	res, err := json.Marshal(playlistDB)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -131,9 +129,7 @@ func PlaySong(w http.ResponseWriter, r *http.Request) {
 }
 
 func PauseSong(w http.ResponseWriter, r *http.Request) {
-	playlist.Pause()
-	playlistDB.Pause()
-	playlistDB.State = internal.Pause
+	playlistDB = internal.PauseSong()
 	res, err := json.Marshal(playlistDB)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -145,7 +141,7 @@ func PauseSong(w http.ResponseWriter, r *http.Request) {
 }
 
 func NextSong(w http.ResponseWriter, r *http.Request) {
-	next := playlistDB.NextSong()
+	next := internal.NextSong()
 
 	res, err := json.Marshal(next)
 	if err != nil {
@@ -158,7 +154,7 @@ func NextSong(w http.ResponseWriter, r *http.Request) {
 }
 
 func PrevSong(w http.ResponseWriter, r *http.Request) {
-	prev := playlistDB.PrevSong()
+	prev := internal.PrevSong()
 
 	res, err := json.Marshal(prev)
 	if err != nil {
@@ -171,6 +167,7 @@ func PrevSong(w http.ResponseWriter, r *http.Request) {
 }
 
 func Status(w http.ResponseWriter, r *http.Request) {
+	playlistDB = internal.GetPlaylistDB()
 	res, err := json.Marshal(playlistDB)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -182,6 +179,5 @@ func Status(w http.ResponseWriter, r *http.Request) {
 }
 
 func init() {
-	playlistDB = models.GetPlaylist()
-	playlist = internal.GetPlaylist()
+	playlistDB = internal.GetPlaylistDB()
 }
