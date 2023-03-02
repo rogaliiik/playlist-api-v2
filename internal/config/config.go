@@ -6,17 +6,13 @@ import (
 	"gorm.io/gorm"
 	"log"
 	"os"
-	"sync"
 )
 
-var store Store
-
 type Store struct {
-	DB    *gorm.DB
-	Mutex sync.Mutex
+	DB *gorm.DB
 }
 
-func Connect() {
+func Connect() *Store {
 	dbPassword, ok := os.LookupEnv("DB_PASSWORD")
 	if !ok {
 		panic("db_password is not in .env")
@@ -31,15 +27,11 @@ func Connect() {
 	}
 
 	dsn := "host=localhost user=" + dbUser + " password=" + dbPassword + " dbname=" + dbName + " sslmode=disable"
-	d, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		panic(err)
 	}
-	store.DB = d
-}
-
-func GetDB() Store {
-	return store
+	return &Store{db}
 }
 
 func init() {

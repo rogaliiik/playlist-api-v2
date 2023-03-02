@@ -1,10 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
-
+	
 	"github.com/gorilla/mux"
 
 	"github.com/rogaliiik/playlist/internal/playlist"
@@ -16,12 +15,11 @@ func main() {
 	routes.RegisterRoutes(router)
 	http.Handle("/", router)
 
-	p := internal.GetPlaylist()
-	p.Wg.Add(1)
-	defer p.Wg.Wait()
+	internal.APIServer.Playlist.Wg.Add(1)
+	defer internal.APIServer.Playlist.Wg.Wait()
 
-	go p.Broadcast()
+	go internal.APIServer.Playlist.Broadcast()
 
-	fmt.Println("Server is working at localhost:8080")
+	log.Println("Server is working at localhost:8080")
 	log.Fatal(http.ListenAndServe("localhost:8080", router))
 }

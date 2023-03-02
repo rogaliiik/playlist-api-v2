@@ -2,16 +2,23 @@ package internal
 
 import (
 	"fmt"
+	"github.com/rogaliiik/playlist/internal/config"
 	"github.com/rogaliiik/playlist/internal/models"
 	"sync"
 	"time"
 )
 
-var (
-	playlist *Playlist
-)
+var APIServer *Server
 
-// TODO: tests, Docker, errors, comments
+type Server struct {
+	Store    *config.Store
+	Playlist *Playlist
+}
+
+func NewServer(store *config.Store, playlist *Playlist) *Server {
+	return &Server{store, playlist}
+}
+
 const (
 	Pause = 0
 	Play  = 1
@@ -20,10 +27,6 @@ const (
 type Playlist struct {
 	playlistDB *models.PlaylistDB
 	Wg         sync.WaitGroup
-}
-
-func GetPlaylist() *Playlist {
-	return playlist
 }
 
 func (p *Playlist) Shutdown() {
@@ -44,7 +47,7 @@ func (p *Playlist) Broadcast() {
 				if p.playlistDB.State == Play {
 					fmt.Println("id:", song.ID, "name:", song.Title, "timecode:", p.playlistDB.Timecode)
 					p.playlistDB.Timecode += 1
-					models.Store.DB.Save(&p.playlistDB)
+					APIServer.Store.DB.Save(&p.playlistDB)
 				}
 			}
 		}
@@ -56,5 +59,7 @@ func (p *Playlist) Broadcast() {
 }
 
 func init() {
-	playlist = &Playlist{}
+	db := config.Connect()
+	APIServer = NewServer(db, &Playlist{})
+	APIServer.Store.DB.AutoMigrate(&models.Song{}, &models.PlaylistDB{})
 }

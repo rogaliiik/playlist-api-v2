@@ -10,10 +10,10 @@ import (
 func GetPlaylistDB() *models.PlaylistDB {
 	var p *models.PlaylistDB
 
-	err := models.Store.DB.First(&p).Error
+	err := APIServer.Store.DB.First(&p).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		models.Store.DB.Create(&models.PlaylistDB{})
-		models.Store.DB.First(&p)
+		APIServer.Store.DB.Create(&models.PlaylistDB{})
+		APIServer.Store.DB.First(&p)
 		return p
 	}
 	return p
@@ -22,18 +22,18 @@ func GetPlaylistDB() *models.PlaylistDB {
 func AddSong(song *models.Song) *models.Song {
 	p := GetPlaylistDB()
 	var tail *models.Song
-	err := models.Store.DB.Last(&tail).Error
+	err := APIServer.Store.DB.Last(&tail).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		newSong := CreateSong(song)
 		p.Current = newSong.ID
-		models.Store.DB.Save(&p)
+		APIServer.Store.DB.Save(&p)
 		return newSong
 	}
 	newSong := CreateSong(song)
 	tail.Next = newSong.ID
 	newSong.Prev = tail.ID
-	models.Store.DB.Save(&tail)
-	models.Store.DB.Save(&newSong)
+	APIServer.Store.DB.Save(&tail)
+	APIServer.Store.DB.Save(&newSong)
 	return newSong
 }
 
@@ -45,14 +45,14 @@ func NextSong() *models.Song {
 			song := GetSongById(cur.Next)
 			p.Current = song.ID
 			p.Timecode = 0
-			models.Store.DB.Save(&p)
+			APIServer.Store.DB.Save(&p)
 			return song
 		}
 		var head *models.Song
-		models.Store.DB.First(&head)
+		APIServer.Store.DB.First(&head)
 		p.Current = head.ID
 		p.Timecode = 0
-		models.Store.DB.Save(&p)
+		APIServer.Store.DB.Save(&p)
 		return head
 	}
 	return nil
@@ -66,14 +66,14 @@ func PrevSong() *models.Song {
 			song := GetSongById(cur.Prev)
 			p.Current = song.ID
 			p.Timecode = 0
-			models.Store.DB.Save(&p)
+			APIServer.Store.DB.Save(&p)
 			return song
 		}
 		var tail *models.Song
-		models.Store.DB.Last(&tail)
+		APIServer.Store.DB.Last(&tail)
 		p.Current = tail.ID
 		p.Timecode = 0
-		models.Store.DB.Save(&p)
+		APIServer.Store.DB.Save(&p)
 		return tail
 	}
 	return nil
@@ -82,7 +82,7 @@ func PrevSong() *models.Song {
 func PlaySong() *models.PlaylistDB {
 	p := GetPlaylistDB()
 	p.State = Play
-	models.Store.DB.Save(&p)
+	APIServer.Store.DB.Save(&p)
 	log.Println("playlist is playing")
 	return p
 }
@@ -90,7 +90,7 @@ func PlaySong() *models.PlaylistDB {
 func PauseSong() *models.PlaylistDB {
 	p := GetPlaylistDB()
 	p.State = Pause
-	models.Store.DB.Save(&p)
+	APIServer.Store.DB.Save(&p)
 	log.Println("playlist is paused")
 	return p
 }
