@@ -3,14 +3,14 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/rogaliiik/playlist/internal/models"
-	internal "github.com/rogaliiik/playlist/internal/playlist"
 	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/gorilla/mux"
 
+	"github.com/rogaliiik/playlist/internal/models"
+	internal "github.com/rogaliiik/playlist/internal/playlist"
 	"github.com/rogaliiik/playlist/utility"
 )
 

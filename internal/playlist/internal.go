@@ -2,10 +2,11 @@ package internal
 
 import (
 	"fmt"
-	"github.com/rogaliiik/playlist/internal/config"
-	"github.com/rogaliiik/playlist/internal/models"
 	"sync"
 	"time"
+
+	"github.com/rogaliiik/playlist/internal/config"
+	"github.com/rogaliiik/playlist/internal/models"
 )
 
 var APIServer *Server

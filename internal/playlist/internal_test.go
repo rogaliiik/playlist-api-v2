@@ -3,15 +3,17 @@ package internal_test
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/gorilla/mux"
-	"github.com/rogaliiik/playlist/internal/models"
-	internal "github.com/rogaliiik/playlist/internal/playlist"
-	"github.com/rogaliiik/playlist/internal/routes"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/rogaliiik/playlist/internal/models"
+	internal "github.com/rogaliiik/playlist/internal/playlist"
+	"github.com/rogaliiik/playlist/internal/routes"
 )
 
 var router *mux.Router

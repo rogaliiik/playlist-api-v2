@@ -2,9 +2,11 @@ package internal
 
 import (
 	"errors"
-	"github.com/rogaliiik/playlist/internal/models"
-	"gorm.io/gorm"
 	"log"
+
+	"gorm.io/gorm"
+
+	"github.com/rogaliiik/playlist/internal/models"
 )
 
 func GetPlaylistDB() *models.PlaylistDB {

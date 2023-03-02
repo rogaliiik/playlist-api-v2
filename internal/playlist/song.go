@@ -1,8 +1,9 @@
 package internal
 
 import (
-	"github.com/rogaliiik/playlist/internal/models"
 	"log"
+
+	"github.com/rogaliiik/playlist/internal/models"
 )
 
 func CreateSong(s *models.Song) *models.Song {
